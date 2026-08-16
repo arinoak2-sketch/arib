@@ -48,6 +48,10 @@ src/
   components/  UI primitives, charts, and composed pieces
   views/       One file per screen
   styles/      Design tokens and base styles
+
+server/
+  price-worker/  Cloudflare Worker backing product search (SerpAPI)
+e2e/           Browser scripts driving the real app
 ```
 
 Three rules hold the whole thing together.
@@ -104,24 +108,39 @@ current prices. **It never invents a price.** With no provider configured it
 says so and routes you to entering a target by hand — which is what this build
 does by default.
 
-### Wiring a provider
+### Turning it on
 
-Set the endpoint at build time:
+A ready-made backend lives in [`server/price-worker/`](server/price-worker) —
+a Cloudflare Worker backed by SerpAPI's Google Shopping engine. It handles the
+two things a browser can't: making the request server-side (retailers and
+SerpAPI send no CORS headers) and keeping the API key out of the client bundle.
 
 ```bash
-VITE_PRODUCT_SEARCH_ENDPOINT=https://your-service.example/search \
-VITE_PRODUCT_SEARCH_KEY=optional-bearer-token \
-npm run build
+cd server/price-worker
+npm install
+npx wrangler secret put SERPAPI_KEY     # from serpapi.com/manage-api-key
+npx wrangler deploy
 ```
 
-Your endpoint receives:
+Then build the app against the URL it prints:
+
+```bash
+VITE_PRODUCT_SEARCH_ENDPOINT=https://aurum-price-worker.<you>.workers.dev/search npm run build
+```
+
+That's the whole setup. See the [worker README](server/price-worker/README.md)
+for protecting the key, caching, costs, and local development against a stub
+that needs no key at all.
+
+### Using a different backend
+
+The app talks to an interface, not to SerpAPI, so anything that answers this
+contract works:
 
 ```
 GET <endpoint>?q=<query>&currency=<ISO-4217>
 Authorization: Bearer <key>        # only when a key is configured
 ```
-
-and answers with:
 
 ```json
 {
@@ -130,10 +149,8 @@ and answers with:
       "id": "ps5-slim",
       "title": "PlayStation 5 Slim",
       "brand": "Sony",
-      "description": "…",
       "imageUrl": "https://…",
       "url": "https://…",
-      "variants": ["Digital Edition"],
       "offers": [
         { "retailer": "Retailer A", "price": 49999.0, "currency": "INR", "url": "https://…" }
       ]
@@ -142,11 +159,11 @@ and answers with:
 }
 ```
 
-`price` is in **major** units as a JSON number. Only `title` and at least one
-well-formed offer are required; everything else is optional, and anything
-malformed is discarded rather than guessed at. Non-`http(s)` URLs are rejected.
+`price` is in **major** units as a JSON number. Only `title` and one
+well-formed offer are required; anything malformed is discarded rather than
+guessed at, and non-`http(s)` URLs are rejected.
 
-To try it locally:
+To develop against a fake backend:
 
 ```bash
 npm run mock:search      # serves the contract above on :5174
@@ -162,17 +179,19 @@ accessory shouldn't set someone's savings target — so the app takes the
 takes the median again over what's left
 (`chooseRepresentativePrice` in `src/services/productSearch.ts`).
 
+The suggestion is also always a price some retailer is actually charging. With
+an even number of offers the textbook median averages the two central values,
+which invents a figure nobody quoted — four listings around ₹49,000–50,500
+average to ₹49,744.50, a price that exists nowhere. The upper of the two
+central listings is used instead: real, and erring in the safer direction for a
+savings target.
+
 Whatever it lands on is presented as an *estimate*:
 
 - every source listing is disclosed, including the ones excluded
 - the retrieval timestamp is shown, with a note that prices change
 - the target field is editable before the goal is created
 - the goal keeps a `PriceSnapshot`, never a live dependency on the retailer
-
-### Adding a different provider
-
-Implement `ProductSearchProvider` and hand it to `setProductSearchProvider()`.
-The UI consumes the interface, not the transport, so no screen changes.
 
 ---
 
@@ -215,22 +234,25 @@ item gets a marker as well as a tint.
 
 ```bash
 npm run check        # typecheck + lint + unit tests
-npm test             # 98 unit tests
+npm test             # 147 unit tests, app and worker
 npm run e2e          # browser flows (needs `npm run preview` on :4173)
-npm run e2e:search   # product search (needs the mock server + a build with the endpoint)
+npm run e2e:search   # product search against the mock backend
+npm run e2e:worker   # the full app → worker → SerpAPI-stub chain
 ```
 
 Unit tests cover the parts where being wrong is expensive: money parsing and
 formatting, milestone generation across goal sizes, pace maths (including
 divide-by-zero on the target date and dates in the past), the command
-invariants, storage parsing of corrupt payloads, and the search provider's
-normalization and failure paths.
+invariants, storage parsing of corrupt payloads, the search provider's
+normalization and failure paths, and the worker's product clustering and
+currency reconciliation.
 
 The e2e scripts drive a real browser through goal creation, adding and spending,
 the overspend guard, editing and deleting entries, completion and celebration,
 keyboard access, dark mode, mobile layout and reload persistence. They caught
-three real bugs during development, including a closed `<dialog>` that was
-covering the page and swallowing every click.
+several real bugs during development, including a closed `<dialog>` that was
+covering the page and swallowing every click, and a `$499` US listing being
+read as `₹499` inside a rupee search.
 
 ---
 

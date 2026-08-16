@@ -47,6 +47,14 @@ describe('chooseRepresentativePrice', () => {
     const price = chooseRepresentativePrice([offer('A', 101), offer('B', 102)])
     expect(Number.isInteger(price)).toBe(true)
   })
+
+  it('suggests a price a retailer actually charges', () => {
+    // Averaging the two central listings would invent ₹49,744.50 — a figure
+    // no shop quotes. The suggestion has to be one of the observed prices.
+    const observed = [48_999, 49_490, 49_999, 50_490]
+    const price = chooseRepresentativePrice(observed.map((p, i) => offer(`R${i}`, p)))
+    expect(observed.map((p) => fromMajor(p, 'INR'))).toContain(price)
+  })
 })
 
 describe('unconfiguredProvider', () => {

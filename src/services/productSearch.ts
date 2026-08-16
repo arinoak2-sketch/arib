@@ -110,13 +110,19 @@ export function chooseRepresentativePrice(offers: readonly PriceSource[]): numbe
   return trimmed.length > 0 ? median(trimmed) : firstPass
 }
 
+/**
+ * The middle price — but always a price a retailer is actually charging.
+ *
+ * With an even number of offers the textbook median averages the two central
+ * values, which invents a figure nobody quoted: four listings at ₹48,999 /
+ * ₹49,490 / ₹49,999 / ₹50,490 average out to ₹49,744.50, a price that exists
+ * nowhere. Taking the upper of the two central listings instead keeps the
+ * suggestion real, and errs slightly high — the safer direction for a savings
+ * target, since the cost of over-saving is much lower than falling short.
+ */
 function median(values: readonly number[]): number {
   const sorted = [...values].sort((a, b) => a - b)
-  const mid = Math.floor(sorted.length / 2)
-  if (sorted.length % 2 === 1) return sorted[mid]
-  // Averaging two integers can land on .5; round so the result stays an
-  // exact minor-unit count.
-  return Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+  return sorted[Math.floor(sorted.length / 2)]
 }
 
 /* ------------------------------------------------------------------ */

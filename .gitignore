@@ -28,3 +28,6 @@ dist-*
 
 # Screenshots written by the e2e scripts
 e2e/screenshots/
+
+# Cloudflare Workers local state
+.wrangler/
