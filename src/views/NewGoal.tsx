@@ -14,6 +14,7 @@ import { formatDate, formatTime, toCalendarDate } from '../lib/date'
 import { createId } from '../lib/id'
 import {
   getProductSearchProvider,
+  isProductSearchAvailable,
   type ProductCandidate,
   type ProductSearchOutcome,
 } from '../services/productSearch'
@@ -33,7 +34,15 @@ const ACCENTS: { value: AccentName; label: string }[] = [
 export function NewGoal() {
   const { navigate, back } = useRouter()
   const { settings, data } = useAppStore()
-  const [mode, setMode] = useState<Mode>('search')
+
+  /*
+   * With no search provider wired up, looking up a product can only ever end
+   * in "not connected". Leading with it would make a working app feel broken
+   * on the very first screen a new user reaches, so the whole choice is hidden
+   * and goal creation goes straight to entering a target.
+   */
+  const searchAvailable = isProductSearchAvailable()
+  const [mode, setMode] = useState<Mode>(searchAvailable ? 'search' : 'custom')
   const [selected, setSelected] = useState<ProductCandidate | null>(null)
 
   const currency = settings.currency
@@ -46,7 +55,9 @@ export function NewGoal() {
         description={
           selected
             ? 'Check the target, then make it yours. Every number here can be changed.'
-            : 'Look up something you want, or set your own target from scratch.'
+            : searchAvailable
+              ? 'Look up something you want, or set your own target from scratch.'
+              : 'Name what you\u2019re saving for and set a target.'
         }
         onBack={selected ? () => setSelected(null) : back}
         backLabel={selected ? 'Back to search' : 'Back'}
@@ -61,17 +72,19 @@ export function NewGoal() {
         />
       ) : (
         <>
-          <div className="new-goal__modes">
-            <Segmented
-              label="How would you like to start?"
-              value={mode}
-              onChange={setMode}
-              options={[
-                { value: 'search', label: 'Look up a product' },
-                { value: 'custom', label: 'Set my own' },
-              ]}
-            />
-          </div>
+          {searchAvailable && (
+            <div className="new-goal__modes">
+              <Segmented
+                label="How would you like to start?"
+                value={mode}
+                onChange={setMode}
+                options={[
+                  { value: 'search', label: 'Look up a product' },
+                  { value: 'custom', label: 'Set my own' },
+                ]}
+              />
+            </div>
+          )}
 
           {mode === 'search' ? (
             <ProductSearch

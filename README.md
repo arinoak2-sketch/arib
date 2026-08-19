@@ -118,17 +118,15 @@ SerpAPI send no CORS headers) and keeping the API key out of the client bundle.
 ```bash
 cd server/price-worker
 npm install
-npx wrangler secret put SERPAPI_KEY     # from serpapi.com/manage-api-key
-npx wrangler deploy
+npm run setup
 ```
 
-Then build the app against the URL it prints:
+`setup` handles the lot — Cloudflare login, storing your SerpAPI key as a
+secret, deploying, and printing the one command needed to build the app against
+the result. You'll need a key from
+[serpapi.com](https://serpapi.com/manage-api-key); the rest is prompts.
 
-```bash
-VITE_PRODUCT_SEARCH_ENDPOINT=https://aurum-price-worker.<you>.workers.dev/search npm run build
-```
-
-That's the whole setup. See the [worker README](server/price-worker/README.md)
+That's the whole thing. See the [worker README](server/price-worker/README.md)
 for protecting the key, caching, costs, and local development against a stub
 that needs no key at all.
 

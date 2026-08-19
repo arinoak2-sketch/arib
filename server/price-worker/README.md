@@ -20,13 +20,18 @@ app needs no changes to use it.
 ```bash
 cd server/price-worker
 npm install
+npm run setup
+```
 
-# 1. Your SerpAPI key — https://serpapi.com/manage-api-key
-npx wrangler secret put SERPAPI_KEY
+`setup` walks through the whole thing: Cloudflare login, saving the SerpAPI key
+as a secret, deploying, and printing the exact command to build the app against
+the result. Nothing is stored in a file, and the key never reaches the browser.
 
-# 2. Lock it to your site (see "Protecting the key" below)
-#    Edit ALLOWED_ORIGINS in wrangler.toml first.
+Doing it by hand instead:
 
+```bash
+npx wrangler login
+npx wrangler secret put SERPAPI_KEY     # https://serpapi.com/manage-api-key
 npx wrangler deploy
 ```
 

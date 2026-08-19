@@ -59,12 +59,12 @@ await page.getByRole('button', { name: /create your first goal/i }).click()
 await page.waitForTimeout(400)
 await shot('04-new-goal-search')
 
-// Product search should honestly report "not connected"
-const unconfigured = await page.getByText(/price lookup isn't connected/i).isVisible()
-check('search reports unconfigured (no fabricated prices)', unconfigured)
-
-await page.getByRole('radio', { name: /set my own/i }).click()
-await page.waitForTimeout(300)
+// With no search provider configured the app must not lead with a dead end:
+// goal creation goes straight to entering a target, and the product-lookup
+// choice is not offered at all.
+check('no dead-end search step', await page.getByLabel('Goal name').isVisible())
+check('product lookup not offered when unconfigured', (await page.getByRole('radio', { name: /look up a product/i }).count()) === 0)
+check('no fabricated prices anywhere', (await page.getByText(/estimated/i).count()) === 0)
 
 await page.getByLabel('Goal name').fill('PlayStation 5')
 await page.getByLabel('Target amount').fill('50000')
@@ -131,8 +131,7 @@ check('progress back to 31% after spend', pct3?.trim() === '31%', `got ${pct3}`)
 // ── Second goal ─────────────────────────────────────────────────────
 console.log('\n== Second goal ==')
 await page.goto(`${BASE}/new`, { waitUntil: 'networkidle' })
-await page.getByRole('radio', { name: /set my own/i }).click()
-await page.waitForTimeout(200)
+await page.waitForTimeout(300)
 await page.getByLabel('Goal name').fill('Vacation')
 await page.getByLabel('Target amount').fill('60000')
 await page.getByLabel(/starting amount/i).fill('15000')
